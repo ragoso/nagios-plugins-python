@@ -5,7 +5,7 @@
 import dns.resolver
 
 resolver = dns.resolver.Resolver()
-resolver.nameservers = ['168.121.40.3']
+resolver.nameservers = ['8.8.8.8']
 
 answer = resolver.query('google.com')
 
