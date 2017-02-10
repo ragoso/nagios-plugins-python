@@ -27,4 +27,4 @@ else:
 	status_message = ''
 
 
-print 'STATUS %s %s, %f ms' % (c.getinfo(pycurl.HTTP_CODE), status_msg[0], c.getinfo(pycurl.TOTAL_TIME))
+print('STATUS %s %s, %f ms' % (c.getinfo(pycurl.HTTP_CODE), status_msg[0], c.getinfo(pycurl.TOTAL_TIME)))
