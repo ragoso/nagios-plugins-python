@@ -10,7 +10,7 @@ if(len(sys.argv)<4):
 f = os.popen("/usr/bin/snmpget -v1 -c public -Cf {} 1.3.6.1.2.1.1.3.0".format(sys.argv[1]))
 line = f.read()
 
-days = re.findall(r'[0-9]* (?=days)', line)
+days = re.findall(r'[0-9]* (?=day)', line)
 hours = re.findall(r'[0-9]{0,2}:[0-9]{0,2}:[0-9]{0,2}', line)
 
 if(len(days)>0):
