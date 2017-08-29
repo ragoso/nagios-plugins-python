@@ -10,23 +10,29 @@ oid_prefix = "1.3.6.1.2.1.31.1.1.1."
 oid_bytes_in = oid_prefix + "6." + sys.argv[2]
 oid_bytes_out = oid_prefix + "10." + sys.argv[2]
 
+
 bytes_in = os.popen("/usr/bin/snmpget -v1 -c public -Cf {} {} | sed 's/.*Counter64: //'".format(sys.argv[1], oid_bytes_in))
+time1_in = time.time()
 time.sleep(1)
+
 bytes_in2 = os.popen("/usr/bin/snmpget -v1 -c public -Cf {} {} | sed 's/.*Counter64: //'".format(sys.argv[1], oid_bytes_in))
+time2_in = time.time()
 
 bytes_in = int(bytes_in.read())
 bytes_in2 = int(bytes_in2.read())
 
-bytes_in_sec = (bytes_in2 - bytes_in)
+bytes_in_sec = (bytes_in2 - bytes_in) / (time2_in - time1_in)
 kbits_in = (bytes_in_sec / 1024) * 8
 
 bytes_out = os.popen("/usr/bin/snmpget -v1 -c public -Cf {} {} | sed 's/.*Counter64: //'".format(sys.argv[1], oid_bytes_out))
+time1_out = time.time()
 time.sleep(1)
 bytes_out2 = os.popen("/usr/bin/snmpget -v1 -c public -Cf {} {} | sed 's/.*Counter64: //'".format(sys.argv[1], oid_bytes_out))
+time2_out = time.time()
 
 bytes_out = int(bytes_out.read())
 bytes_out2 = int(bytes_out2.read())
-bytes_out_sec = (bytes_out2 - bytes_out)
+bytes_out_sec = (bytes_out2 - bytes_out) / (time2_out - time1_out)
 kbits_out = (bytes_out_sec / 1024) * 8
 
 oid_name = oid_bytes_in.split(".")
