@@ -1,16 +1,17 @@
 #!/usr/bin/python3.5
 
-import argparse, time
+import argparse, time, datetime
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 
 mk_oids = {'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.1', 
 			'ram': {'total' : '1.3.6.1.2.1.25.2.3.1.5.65536', 'used' : '1.3.6.1.2.1.25.2.3.1.6.65536'}, 
-			'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name': '1.3.6.1.2.1.2.2.1.2.X', 'bytes-in' : '1.3.6.1.2.1.31.1.1.1.6.X' } }
+			'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name': '1.3.6.1.2.1.2.2.1.2.X', 'bytes-in' : '1.3.6.1.2.1.31.1.1.1.6.X' },
+			'uptime' : '1.3.6.1.2.1.1.3.0' }
 
 parser = argparse.ArgumentParser(description='SNMP Checker.')
 
 parser.add_argument('IP', action='store',  help="IP Address of SNMP Agent")
-parser.add_argument('PORT', action='store', help="Port SNMP of Agent")
+parser.add_argument('--port', action='store', default=161, help="Port SNMP of Agent")
 parser.add_argument('COMMUNITY', action='store', help="Community SNMP of Agent")
 
 parser.add_argument('--mk-cpu-load', action='store_true',  help="Get CPU Load resource of Mikrotik")
@@ -32,13 +33,12 @@ parser.add_argument('--critical', nargs='*' , default=None, type=int, help='Limi
 parser.add_argument('--minimum', action='store_true', help='Sets minimum limit for warning and critical')
 
 args = parser.parse_args()
-
 def query_oid(oid):
 	try: 
 		cmdGen = cmdgen.CommandGenerator()
 		errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
 		    cmdgen.CommunityData(args.COMMUNITY),
-		    cmdgen.UdpTransportTarget((args.IP, args.PORT)),
+		    cmdgen.UdpTransportTarget((args.IP, 161)),
 		    oid
 			)
 	except errorIndication:
@@ -79,7 +79,7 @@ def minimum(result, v):
 def exact(result):
 	if result == 1:
 		exit_code = 0
-	elif status == 2:
+	elif result == 2:
 		exit_code = 2
 	else:
 		exit_code = 3
@@ -91,6 +91,12 @@ def limit(result, active=False, v=0):
 	else:
 		exit_code = maximum(result, v)
 	return exit_code
+
+def k2m(k):
+	if k > 1000:
+		return (k / 1000, "Mbps")
+	else:
+		return (k, "Kbps")
 
 
 def cpu_load(oid):
@@ -120,7 +126,7 @@ def port_status(oid, port_suffix):
 	return (response, exit_code)
 
 def port_traffic(oid, port_suffix):
-	if len(args.warning) < 2 or len(args.critical) < 2:
+	if (args.warning and args.critical) and ( len(args.warning) < 2 or len(args.critical) < 2):
 		print("--warning and --critical must have two arguments (IN OUT)")
 		exit(3)
 	oid_in = oid.replace('X', port_suffix)
@@ -138,14 +144,14 @@ def port_traffic(oid, port_suffix):
 	kbits_in = (bytes_in_sec / 1024) * 8
 
 	bytes_out = query_oid(oid_out)
-	
+
 	time_out = time.time()
 	time.sleep(1)
 	bytes_out_2 = query_oid(oid_out)
 	time_out_2 = time.time()
 	bytes_out_sec = (bytes_out_2 - bytes_out) / (time_out_2 - time_out)
 	kbits_out = (bytes_out_sec / 1024) * 8
-	
+
 	port_name = query_oid(oid_name)
 
 	exit_codes = []
@@ -153,21 +159,20 @@ def port_traffic(oid, port_suffix):
 	exit_codes.append(limit(kbits_out, True))
 	exit_codes.append(limit(kbits_in, True, 1))
 	exit_codes.append(limit(kbits_out, True, 1))
-	
-	if kbits_out > 1000:
-	        kbits_out = kbits_out / 1000
-	        out =  "Mbps"
-	else:
-	        out = "Kbps"
 
-	if kbits_in > 1000:
-	        kbits_in = kbits_in / 1000
-	        iin = "Mbps"
-	else:
-	        iin = "Kbps"
-
-	response = "{} traffic is: Out {:.2f} {} / In {:.2f} {}.".format(port_name, float(kbits_out), out, float(kbits_in), iin)
+	output_out = k2m(kbits_out)
+	output_in = k2m(kbits_in)
+	response = "{} traffic is: Out {:.2f} {} / In {:.2f} {}.".format(port_name, float(output_out[0]), output_out[1], float(output_in[0]), output_in[1])
 	exit_code = max(exit_codes)
+	return (response, exit_code)
+
+
+def uptime(oid):
+	ticks = query_oid(oid)
+	seconds = int(ticks / 100)
+	days = int(ticks / 8640000)
+	exit_code = limit(days, True)
+	response = "Uptime is {}".format(datetime.timedelta(seconds=seconds))
 	return (response, exit_code)
 
 
@@ -187,3 +192,8 @@ elif args.mk_port_traffic:
 	feedback = port_traffic(mk_oids['port']['bytes-in'], args.mk_port_traffic)
 	print(feedback[0])
 	exit(feedback[1])
+elif args.mk_uptime:
+	feedback = uptime(mk_oids['uptime'])
+	print(feedback[0])
+	exit(feedback[1])
+
