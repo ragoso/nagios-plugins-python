@@ -7,10 +7,6 @@ mk_oids = {'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.1',
 			'ram': {'total' : '1.3.6.1.2.1.25.2.3.1.5.65536', 'used' : '1.3.6.1.2.1.25.2.3.1.6.65536'}, 
 			'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name': '1.3.6.1.2.1.2.2.1.2.X', 'bytes-in' : '1.3.6.1.2.1.31.1.1.1.6.X' } }
 
-	
-	
-
-
 parser = argparse.ArgumentParser(description='SNMP Checker.')
 
 parser.add_argument('IP', action='store',  help="IP Address of SNMP Agent")
@@ -79,9 +75,6 @@ def minimum(result, v):
 	elif result <= args.critical[v]:
 		exit_code = 2
 	return exit_code
-
-
-
 
 def exact(result):
 	if result == 1:
@@ -176,8 +169,6 @@ def port_traffic(oid, port_suffix):
 	response = "{} traffic is: Out {:.2f} {} / In {:.2f} {}.".format(port_name, float(kbits_out), out, float(kbits_in), iin)
 	exit_code = max(exit_codes)
 	return (response, exit_code)
-
-
 
 
 if args.mk_cpu_load:
