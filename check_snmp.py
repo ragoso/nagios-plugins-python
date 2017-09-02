@@ -127,6 +127,9 @@ def port_status(oid, port_suffix):
 	return (response, exit_code)
 
 def port_traffic(oid, port_suffix):
+	if len(args.warning) < 2 and len(args.critical) < 2:
+		print("--warning and --critical must have two arguments (IN OUT)")
+		exit(3)
 	oid_in = oid.replace('X', port_suffix)
 	oid_out = oid_in.split('.')
 	oid_out[10] = '10'
@@ -155,7 +158,9 @@ def port_traffic(oid, port_suffix):
 	exit_codes = []
 	exit_codes.append(limit(kbits_in, True))
 	exit_codes.append(limit(kbits_out, True))
-
+	exit_codes.append(limit(kbits_in, True, 1))
+	exit_codes.append(limit(kbits_out, True, 1))
+	
 	if kbits_out > 1000:
 	        kbits_out = kbits_out / 1000
 	        out =  "Mbps"
