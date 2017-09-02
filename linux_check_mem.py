@@ -10,9 +10,7 @@ total = int(total.read())
 
 avaliable = os.popen("/usr/bin/snmpget -v1 -c public -Cf {} 1.3.6.1.4.1.2021.4.11.0 | sed 's/.*INTEGER: //'".format(sys.argv[1]))
 avaliable = int(avaliable.read())
-
 free = (avaliable * 100) / total
-
 used = 100 - free
 
 if free <= int(sys.argv[2]) and free > int(sys.argv[3]):
