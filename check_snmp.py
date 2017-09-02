@@ -127,7 +127,7 @@ def port_status(oid, port_suffix):
 	return (response, exit_code)
 
 def port_traffic(oid, port_suffix):
-	if len(args.warning) < 2 and len(args.critical) < 2:
+	if len(args.warning) < 2 or len(args.critical) < 2:
 		print("--warning and --critical must have two arguments (IN OUT)")
 		exit(3)
 	oid_in = oid.replace('X', port_suffix)
