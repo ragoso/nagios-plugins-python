@@ -1,10 +1,11 @@
 #!/usr/bin/python3.5
 
-import argparse
+import argparse, time
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 
-mk_oids = {'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.1', 'ram': {'total' : '1.3.6.1.2.1.25.2.3.1.5.65536', 'used' : '1.3.6.1.2.1.25.2.3.1.6.65536'}, 
-			'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name': '1.3.6.1.2.1.2.2.1.2.X' } }
+mk_oids = {'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.1', 
+			'ram': {'total' : '1.3.6.1.2.1.25.2.3.1.5.65536', 'used' : '1.3.6.1.2.1.25.2.3.1.6.65536'}, 
+			'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name': '1.3.6.1.2.1.2.2.1.2.X', 'bytes-in' : '1.3.6.1.2.1.31.1.1.1.6.X' } }
 
 	
 	
@@ -53,29 +54,29 @@ def query_oid(oid):
 		exit(3)
 	return varBinds[0][1]
 
-def maximum(result):
+def maximum(result, v):
 	if not (args.warning and args.critical):
 		print("--warning and --critical is required")
 		exit(3)
 	exit_code = 3
-	if result < args.warning[0]:
+	if result < args.warning[v]:
 		exit_code = 0
-	elif result >= args.warning[0] and result < args.critical[0]:
+	elif result >= args.warning[v] and result < args.critical[v]:
 		exit_code = 1
-	elif result >= args.critical[0]:
+	elif result >= args.critical[v]:
 		exit_code = 2
 	return exit_code
 
-def minimum(result):
+def minimum(result, v):
 	if not (args.warning and args.critical):
 		print("--warning and --critical is required")
 		exit(3)
 	exit_code = 3
-	if result > args.warning[0]:
+	if result > args.warning[v]:
 		exit_code = 0
-	elif result <= args.warning[0] and result > args.critical[0]:
+	elif result <= args.warning[v] and result > args.critical[v]:
 		exit_code = 1
-	elif result <= args.critical[0]:
+	elif result <= args.critical[v]:
 		exit_code = 2
 	return exit_code
 
@@ -91,11 +92,11 @@ def exact(result):
 		exit_code = 3
 	return exit_code
 
-def limit(result, active=False):
+def limit(result, active=False, v=0):
 	if args.minimum or active:
-		exit_code = minimum(result)
+		exit_code = minimum(result, v)
 	else:
-		exit_code = maximum(result)
+		exit_code = maximum(result, v)
 	return exit_code
 
 
@@ -125,6 +126,55 @@ def port_status(oid, port_suffix):
 	response = "{} status is {}".format(result_name, status_name[exit_code])
 	return (response, exit_code)
 
+def port_traffic(oid, port_suffix):
+	oid_in = oid.replace('X', port_suffix)
+	oid_out = oid_in.split('.')
+	oid_out[10] = '10'
+	oid_out = '.'.join(oid_out)
+
+	oid_name = mk_oids['port']['name'].replace('X', port_suffix)
+	bytes_in = query_oid(oid_in)
+	time_in = time.time()
+	time.sleep(1)
+	bytes_in_2 = query_oid(oid_in)
+	time_in_2 = time.time()
+	bytes_in_sec = (bytes_in_2 - bytes_in) / (time_in_2 - time_in)
+	kbits_in = (bytes_in_sec / 1024) * 8
+
+	bytes_out = query_oid(oid_out)
+	
+	time_out = time.time()
+	time.sleep(1)
+	bytes_out_2 = query_oid(oid_out)
+	time_out_2 = time.time()
+	bytes_out_sec = (bytes_out_2 - bytes_out) / (time_out_2 - time_out)
+	kbits_out = (bytes_out_sec / 1024) * 8
+	
+	port_name = query_oid(oid_name)
+
+	exit_codes = []
+	exit_codes.append(limit(kbits_in, True))
+	exit_codes.append(limit(kbits_out, True))
+
+	if kbits_out > 1000:
+	        kbits_out = kbits_out / 1000
+	        out =  "Mbps"
+	else:
+	        out = "Kbps"
+
+	if kbits_in > 1000:
+	        kbits_in = kbits_in / 1000
+	        iin = "Mbps"
+	else:
+	        iin = "Kbps"
+
+	response = "{} traffic is: Out {:.2f} {} / In {:.2f} {}.".format(port_name, float(kbits_out), out, float(kbits_in), iin)
+	exit_code = max(exit_codes)
+	return (response, exit_code)
+
+
+
+
 if args.mk_cpu_load:
 	feedback = cpu_load(mk_oids['cpu-load'])
 	print(feedback[0])
@@ -137,5 +187,7 @@ elif args.mk_port_status:
 	feedback = port_status(mk_oids['port']['status'], args.mk_port_status)
 	print(feedback[0])
 	exit(feedback[1])
-
-
+elif args.mk_port_traffic:
+	feedback = port_traffic(mk_oids['port']['bytes-in'], args.mk_port_traffic)
+	print(feedback[0])
+	exit(feedback[1])
