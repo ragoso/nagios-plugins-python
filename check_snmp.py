@@ -41,12 +41,16 @@ def query_oid(oid):
 		    cmdgen.UdpTransportTarget((args.IP, 161)),
 		    oid
 			)
+		result = varBinds[0][1]
 	except errorIndication:
 		print(errorIndication)
 		exit(3)
 	except errorStatus:
 		print('%s at %s' % (errorStatus.prettyPrint(),
                         errorIndex and varBinds[int(errorIndex) - 1][0] or '?'))
+		exit(3)
+	except errorIndex:
+		print(errorIndication)
 		exit(3)
 	return varBinds[0][1]
 
