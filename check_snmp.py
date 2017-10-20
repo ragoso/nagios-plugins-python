@@ -52,7 +52,7 @@ def query_oid(oid):
 	except errorIndex:
 		print(errorIndication)
 		exit(3)
-	return varBinds[0][1]
+	return result
 
 def maximum(result, v):
 	if not (args.warning and args.critical):
