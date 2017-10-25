@@ -19,7 +19,8 @@ usage: snmp_mk_linux.py [-h] [--port PORT] [--mk-cpu-load] [--mk-ram]
                         [--critical [CRITICAL [CRITICAL ...]]] [--minimum]
                         IP COMMUNITY
 
-SNMP Mikrotik and Linux Getter.
+Simple Nagios plugin for monitoring Mikrotik and Linux resources written in
+Python 3. Github page: https://github.com/MatheusRagoso/nagios-plugins-python
 
 positional arguments:
   IP                    IP Address of SNMP Agent
