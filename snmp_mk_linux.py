@@ -12,7 +12,7 @@ mk_oids = {'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.1',
 			'uptime' : '1.3.6.1.2.1.1.3.0' }
 
 
-parser = argparse.ArgumentParser(description='SNMP Mikrotik and Linux Getter.')
+parser = argparse.ArgumentParser(description='Simple Nagios plugin for monitoring Mikrotik and Linux resources written in Python 3. Github page: https://github.com/MatheusRagoso/nagios-plugins-python')
 
 
 parser.add_argument('IP', action='store',  help="IP Address of SNMP Agent")
