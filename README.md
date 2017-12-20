@@ -50,3 +50,7 @@ optional arguments:
                         Limit for critical
   --minimum             Sets minimum limit for warning and critical
   ```
+
+Requirements
+------------
+Install package `pysnmp` in the Pip
