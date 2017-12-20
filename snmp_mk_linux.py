@@ -47,9 +47,9 @@ parser.add_argument('--linux-port-traffic', action='store', metavar='OID port su
 
 
 
-parser.add_argument('--warning', nargs='*', default=None,  type=int, help='Limit for warning')
+parser.add_argument('--warning', action='append',  type=int, help='Limit for warning')
 
-parser.add_argument('--critical', nargs='*' , default=None, type=int, help='Limit for critical')
+parser.add_argument('--critical', action='append' , type=int, help='Limit for critical')
 
 parser.add_argument('--minimum', action='store_true', help='Sets minimum limit for warning and critical')
 
