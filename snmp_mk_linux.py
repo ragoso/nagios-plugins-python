@@ -11,6 +11,15 @@ mk_oids = {'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.1',
 			'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name': '1.3.6.1.2.1.2.2.1.2.X', 'bytes-in' : '1.3.6.1.2.1.31.1.1.1.6.X' },
 			'uptime' : '1.3.6.1.2.1.1.3.0' }
 
+linux_oids = {'uptime': '1.3.6.1.2.1.25.1.1.0',
+		'ram': {'total': '1.3.6.1.4.1.2021.4.5.0', 'free': '1.3.6.1.4.1.2021.4.6.0' },
+		'swap': {'total': '1.3.6.1.4.1.2021.4.3.0', 'free': '1.3.6.1.4.1.2021.4.4.0'},
+		'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.196608',
+		'disk': {'used':'1.3.6.1.2.1.25.2.3.1.6.X', 'total': '1.3.6.1.2.1.25.2.3.1.5.X'},
+		'num-users': '1.3.6.1.2.1.25.1.5.0',
+		'num-proc': '1.3.6.1.2.1.25.1.6.0'
+
+}
 
 parser = argparse.ArgumentParser(description='Simple Nagios plugin for monitoring Mikrotik and Linux resources written in Python 3. Github page: https://github.com/MatheusRagoso/nagios-plugins-python')
 
@@ -37,15 +46,19 @@ parser.add_argument('--linux-cpu-load', action='store_true',  help="Get CPU Load
 
 parser.add_argument('--linux-ram', action='store_true', help="Get memory RAM free resource of Linux")
 
-parser.add_argument('--linux-disk', action='store_true', help="Get memory Disk Usage resource of Linux")
+parser.add_argument('--linux-disk', action='store', metavar='OID partition suffix', help="Get memory Disk Usage resource of Linux")
 
 parser.add_argument('--linux-uptime', action='store_true', help='Get port traffic of Linux')
+
+parser.add_argument('--linux-swap', action='store_true', help='Get swap usage')
 
 parser.add_argument('--linux-port-status', action='store', type=int, metavar='OID port suffix', help='Get port status of Linux')
 
 parser.add_argument('--linux-port-traffic', action='store', metavar='OID port suffix', help='Get port traffic of Linux')
 
+parser.add_argument('--linux-users', action='store_true', help='Number of users authenticated on system.')
 
+parser.add_argument('--linux-proc', action='store_true', help='Number of process running on system.') 
 
 parser.add_argument('--warning', action='append',  type=int, help='Limit for warning')
 
@@ -168,7 +181,7 @@ def ram(oid):
 	total_result = query_oid(oid['total'])
 	used_result = query_oid(oid['used'])
 	usage = (used_result * 100) / total_result
-	response = "RAM Usage is {:.1f}%.".format(float(usage))
+	response = "Memory Usage is {:.1f}%.".format(float(usage))
 	exit_code = limit(usage)
 	return (response, exit_code)
 
@@ -245,6 +258,37 @@ def uptime(oid):
 	return (response, exit_code)
 
 
+def linux_ram(oid):
+	free = query_oid(oid['free'])
+	total = query_oid(oid['total'])
+	free = (free * 100) / total
+	used = float(100 - free)
+	exit_code = limit(used)
+	response = "Memory usage is {:.2f}%".format(used)
+	return (response, exit_code)
+
+def linux_disk(oid, partition_suffix):
+	
+	used = query_oid(oid['used'].replace('X', partition_suffix))
+	total = query_oid(oid['total'].replace('X', partition_suffix))
+	free = ((total - used) * 100) / total
+	free = float(100 - free)
+	exit_code = limit(free)
+	response = "Disk usage is  {:.2f}%".format(free)
+	return (response, exit_code)
+
+def linux_num_users(oid):
+	num = query_oid(oid)
+	exit_code = limit(num)
+	response = "{} Users currently logged in".format(num)
+	return (response, exit_code)
+
+def linux_num_proc(oid):
+	num = query_oid(oid)
+	exit_code = limit(num)
+	response = "{} Running processes currently".format(num)
+	return (response, exit_code)
+
 
 if args.mk_cpu_load:
 
@@ -276,3 +320,37 @@ elif args.mk_uptime:
 	print(feedback[0])
 	exit(feedback[1])
 
+elif args.linux_uptime:
+	feedback = uptime(linux_oids['uptime'])
+	print(feedback[0])
+	exit(feedback[1])
+
+elif args.linux_ram:
+	feedback = linux_ram(linux_oids['ram'])
+	print(feedback[0])
+	exit(feedback[1])
+
+elif  args.linux_cpu_load:
+	feedback = cpu_load(linux_oids['cpu-load'])
+	print(feedback[0])
+	exit(feedback[1])
+
+elif  args.linux_disk:
+	feedback = linux_disk(linux_oids['disk'], args.linux_disk)
+	print(feedback[0])
+	exit(feedback[1])
+
+elif args.linux_users:
+	feedback = linux_num_users(linux_oids['num-users'])
+	print(feedback[0])
+	exit(feedback[1])
+
+elif args.linux_proc:
+	feedback = linux_num_proc(linux_oids['num-proc'])
+	print(feedback[0])
+	exit(feedback[1])
+
+elif args.linux_swap:
+	feedback = linux_ram(linux_oids['swap'])
+	print(feedback[0])
+	exit(feedback[1])
