@@ -1,8 +1,7 @@
 #!/usr/bin/python3.5
 
 
-import argparse, time, datetime
-
+import argparse, time, datetime, os, sys, traceback
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 
 
@@ -17,7 +16,8 @@ linux_oids = {'uptime': '1.3.6.1.2.1.25.1.1.0',
 		'cpu-load': '1.3.6.1.2.1.25.3.3.1.2.196608',
 		'disk': {'used':'1.3.6.1.2.1.25.2.3.1.6.X', 'total': '1.3.6.1.2.1.25.2.3.1.5.X'},
 		'num-users': '1.3.6.1.2.1.25.1.5.0',
-		'num-proc': '1.3.6.1.2.1.25.1.6.0'
+		'num-proc': '1.3.6.1.2.1.25.1.6.0',
+		'port' : {'status' : '1.3.6.1.2.1.2.2.1.8.X', 'name' : '1.3.6.1.2.1.2.2.1.2.X', 'bytes-in' : '1.3.6.1.2.1.2.2.1.10.X' }
 
 }
 
@@ -52,7 +52,7 @@ parser.add_argument('--linux-uptime', action='store_true', help='Get port traffi
 
 parser.add_argument('--linux-swap', action='store_true', help='Get swap usage')
 
-parser.add_argument('--linux-port-status', action='store', type=int, metavar='OID port suffix', help='Get port status of Linux')
+parser.add_argument('--linux-port-status', action='store',  metavar='OID port suffix', help='Get port status of Linux')
 
 parser.add_argument('--linux-port-traffic', action='store', metavar='OID port suffix', help='Get port traffic of Linux')
 
@@ -79,6 +79,9 @@ def query_oid(oid):
 		    oid
 			)
 
+		if len(varBinds) == 0:
+			print('Error: Could not fetch data at this time.', file=sys.stdout)
+			os._exit(3)
 		result = varBinds[0][1]
 
 	except errorIndication:
@@ -90,6 +93,7 @@ def query_oid(oid):
 		exit(3)
 	except errorIndex:
 		print(errorIndication)
+		os.system('play --no-show-progress --null --channels 1 synth 0.3 sine 1000')
 		exit(3)
 
 	return result
@@ -166,22 +170,27 @@ def k2m(k):
 	else:
 		return (k, "Kbps")
 
-
+def uk2m(k):
+	return (k / 1000)
 
 def cpu_load(oid):
 
 	result = query_oid(oid)
-	response = "CPU Load is {}%.".format(result)
+	response = "CPU Load is {}%. | load={}%;{};{};0".format(result, result, args.warning[0], args.critical[0])
 	exit_code = limit(result)
 	return (response, exit_code)
 
 
-def ram(oid):
+def ram(oid, linux=False):
 
 	total_result = query_oid(oid['total'])
-	used_result = query_oid(oid['used'])
+	if linux:
+		free = query_oid(oid['free'])
+		used_result = total_result - free
+	else:
+		used_result = query_oid(oid['used'])
 	usage = (used_result * 100) / total_result
-	response = "Memory Usage is {:.1f}%.".format(float(usage))
+	response = "Memory usage is {:.2f}% | ram={:.2f}%;{};{}".format(float(usage), float(usage), args.warning[0], args.critical[0])
 	exit_code = limit(usage)
 	return (response, exit_code)
 
@@ -197,11 +206,12 @@ def port_status(oid, port_suffix):
 	result_name = query_oid(oid_name)
 	exit_code = exact(result)
 	status_name = {0 : 'UP', 2 : 'DOWN', 3: 'UNKNOWN'}
-	response = "{} status is {}".format(result_name, status_name[exit_code])
+	response = "{} status is {} | port={};{};{};{};{} name={}".format(result_name, status_name[exit_code], status_name[exit_code], args.warning[0], 
+										args.critical[0], 0, 5, result_name)
 	return (response, exit_code)
 
 
-def port_traffic(oid, port_suffix):
+def port_traffic(oid, port_suffix, linux=False):
 
 	if (args.warning and args.critical) and ( len(args.warning) < 2 or len(args.critical) < 2):
 		print("--warning and --critical must have two arguments (IN OUT)")
@@ -209,9 +219,11 @@ def port_traffic(oid, port_suffix):
 
 	oid_in = oid.replace('X', port_suffix)
 	oid_out = oid_in.split('.')
-	oid_out[10] = '10'
+	if linux:
+		oid_out[9] = '16'
+	else:
+		oid_out[10] = '10'
 	oid_out = '.'.join(oid_out)
-
 	oid_name = mk_oids['port']['name'].replace('X', port_suffix)
 	bytes_in = query_oid(oid_in)
 	time_in = time.time()
@@ -238,9 +250,12 @@ def port_traffic(oid, port_suffix):
 	exit_codes.append(limit(kbits_in, True, 1))
 	exit_codes.append(limit(kbits_out, True, 1))
 
-	output_out = k2m(kbits_out)
-	output_in = k2m(kbits_in)
-	response = "{} traffic is: Out {:.2f} {} / In {:.2f} {}.".format(port_name, float(output_out[0]), output_out[1], float(output_in[0]), output_in[1])
+	output_out = uk2m(kbits_out)
+	output_in = uk2m(kbits_in)
+	response = "{} traffic is: Out {:.2f} Mbps / In {:.2f} Mbps. | in={:.2f}MB;{};{};0MB;1000MB out={:.2f}MB;{};{};0MB;1000MB".format(port_name, float(output_out), float(output_in), 
+														float(output_in), args.warning[0], 
+														args.critical[0], float(output_out), args.warning[1],
+														args.critical[1])
 	exit_code = max(exit_codes)
 
 	return (response, exit_code)
@@ -253,19 +268,23 @@ def uptime(oid):
 	seconds = int(ticks / 100)
 	days = int(ticks / 8640000)
 	exit_code = limit(days, True)
-	response = "Uptime is {}".format(datetime.timedelta(seconds=seconds))
+	response = "Uptime is {} | uptime={};{};{};0".format(datetime.timedelta(seconds=seconds),
+								datetime.timedelta(seconds=seconds),
+								args.warning[0],
+								args.critical[0])
 
 	return (response, exit_code)
 
 
-def linux_ram(oid):
-	free = query_oid(oid['free'])
-	total = query_oid(oid['total'])
-	free = (free * 100) / total
-	used = float(100 - free)
-	exit_code = limit(used)
-	response = "Memory usage is {:.2f}%".format(used)
-	return (response, exit_code)
+#def linux_ram(oid):
+#	free = query_oid(oid['free'])
+#	total = query_oid(oid['total'])
+#	free = (free * 100) / total
+#	used = float(100 - free)
+#	exit_code = limit(used)
+#	response = "Memory usage is {:.2f}% | ram={:.2f}%;{};{}".format(used, used, args.warning[0], args.critical[0])
+#	return (response, exit_code)
+
 
 def linux_disk(oid, partition_suffix):
 	
@@ -274,19 +293,19 @@ def linux_disk(oid, partition_suffix):
 	free = ((total - used) * 100) / total
 	free = float(100 - free)
 	exit_code = limit(free)
-	response = "Disk usage is  {:.2f}%".format(free)
+	response = "Disk usage is  {:.2f}% | disk={:.2f}%;{};{}".format(free, free, args.warning[0], args.critical[0])
 	return (response, exit_code)
 
 def linux_num_users(oid):
 	num = query_oid(oid)
 	exit_code = limit(num)
-	response = "{} Users currently logged in".format(num)
+	response = "{} Users currently logged in | users={};{};{};0".format(num, num, args.warning[0], args.critical[0])
 	return (response, exit_code)
 
 def linux_num_proc(oid):
 	num = query_oid(oid)
 	exit_code = limit(num)
-	response = "{} Running processes currently".format(num)
+	response = "{} Running processes currently | proc={};{};{};0".format(num, num, args.warning[0], args.critical[0])
 	return (response, exit_code)
 
 
@@ -326,7 +345,7 @@ elif args.linux_uptime:
 	exit(feedback[1])
 
 elif args.linux_ram:
-	feedback = linux_ram(linux_oids['ram'])
+	feedback = ram(linux_oids['ram'], True)
 	print(feedback[0])
 	exit(feedback[1])
 
@@ -352,5 +371,15 @@ elif args.linux_proc:
 
 elif args.linux_swap:
 	feedback = linux_ram(linux_oids['swap'])
+	print(feedback[0])
+	exit(feedback[1])
+
+elif args.linux_port_status:
+	feedback = port_status(linux_oids['port']['status'], args.linux_port_status)
+	print(feedback[0])
+	exit(feedback[1])
+
+elif args.linux_port_traffic:
+	feedback = port_traffic(linux_oids['port']['bytes-in'], args.linux_port_traffic, True)
 	print(feedback[0])
 	exit(feedback[1])
